@@ -177,20 +177,40 @@ mode = st.selectbox(
 
 col1, col2 = st.columns(2)
 
+# -----------------------------
+# TIME SPINNER WIDGET
+# -----------------------------
+def time_spinner(label_prefix, container):
+    col_h, col_m = container.columns([1, 1])
+
+    hour = col_h.number_input(f"{label_prefix} hour", min_value=0, max_value=23, step=1, value=0)
+    minute = col_m.number_input(f"{label_prefix} minute", min_value=0, max_value=59, step=1, value=0)
+
+    return datetime.strptime(f"{hour:02d}:{minute:02d}", "%H:%M").time()
+
+# -----------------------------
+# MODE: Start or End
+# -----------------------------
 if mode == "Enter start date/time":
     start_date = col1.date_input("Start date")
-    start_time = col2.time_input("Start time")
+    start_time = time_spinner("Start", col2)
     end_date = None
     end_time = None
 else:
     end_date = col1.date_input("End date")
-    end_time = col2.time_input("End time")
+    end_time = time_spinner("End", col2)
     start_date = None
     start_time = None
 
+# -----------------------------
+# Duration + kWh
+# -----------------------------
 duration = st.text_input("Duration (h or HH:MM)", placeholder="e.g. 1.5 or 01:30")
 kwh = st.number_input("Energy used (kWh)", min_value=0.0)
 
+# -----------------------------
+# Add Session Button
+# -----------------------------
 if st.button("Add session"):
 
     if not duration:
