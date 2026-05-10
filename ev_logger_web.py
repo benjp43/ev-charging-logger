@@ -87,7 +87,7 @@ def load_csv():
     # Convert End Date to datetime (handles strings)
     df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce")
 
-    # Convert to pure date (drops time)
+    # Convert to pure date
     df["End Date"] = df["End Date"].dt.date
 
     return df
@@ -107,7 +107,6 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
 
     import numpy as np
 
-    # Ensure calculated columns exist with correct dtypes
     if "Night kWh" not in df.columns:
         df["Night kWh"] = np.nan
     if "Day kWh" not in df.columns:
@@ -117,7 +116,6 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
     if "Off-Peak %" not in df.columns:
         df["Off-Peak %"] = pd.Series([None] * len(df), dtype="object")
 
-    # Recalculate ALL rows
     for i, row in df.iterrows():
 
         end_date = row["End Date"]  # already a date
@@ -138,7 +136,7 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
         offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
         df.at[i, "Night kWh"] = round(night_kwh, 2)
-        df.at[i, "Day kWh"] = round(day_kwh, 2)
+        df.at[i, "Day KWh"] = round(day_kwh, 2)
         df.at[i, "Cost"] = round(cost, 2)
         df.at[i, "Off-Peak %"] = f"{offpeak}%"
 
@@ -238,7 +236,7 @@ if st.button("Add session"):
     offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
     new_row = {
-        "End Date": end_dt.date(),        
+        "End Date": end_dt.date(),
         "Start": start_dt.strftime("%H:%M"),
         "End": end_dt.strftime("%H:%M"),
         "Duration (h)": round(duration_h, 2),
@@ -256,19 +254,15 @@ if st.button("Add session"):
 # -----------------------------
 # Display table
 # -----------------------------
-
 st.subheader("Charging History")
 
 df = df.sort_values("End Date").reset_index(drop=True)
 
-# Show table
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
 # Totals + public comparison
 # -----------------------------
-
-# Compute session count and date range
 num_sessions = len(df)
 
 if num_sessions > 0:
@@ -285,18 +279,21 @@ if num_sessions > 0:
     )
 else:
     st.subheader("No charging sessions recorded yet.")
+
 public_cost = total_kwh * public_rate
 difference = public_cost - total_cost
 
 st.write(f"At £{public_rate:.2f}/kWh, public charging would cost **£{public_cost:.2f}**")
 st.write(f"Difference vs home: **£{difference:.2f}**")
 
+# -----------------------------
+# Download CSV
+# -----------------------------
 st.subheader("Download CSV")
 
 if len(df) > 0:
     start_date = df["End Date"].iloc[0].strftime("%d.%m.%Y")
     end_date = df["End Date"].iloc[-1].strftime("%d.%m.%Y")
-
     total_kwh = df["kWh"].sum()
 
     filename = f"Charging history {start_date} to {end_date} {total_kwh:.2f}kWh.csv"
@@ -312,17 +309,6 @@ if len(df) > 0:
 else:
     st.info("No data available to download.")
 
-# Compute summary info
-num_sessions = len(df)
-
-if num_sessions > 0:
-    first_date = df["End Date"].iloc[0]
-    last_date = df["End Date"].iloc[-1]
-else:
-    first_date = last_date = None
-
-total_cost = df["Cost"].sum()
-
 # -----------------------------
 # Custom date range summary
 # -----------------------------
@@ -333,22 +319,15 @@ colA, colB = st.columns(2)
 start_filter = colA.date_input("Start of range (End Date)", key="range_start")
 end_filter = colB.date_input("End of range (End Date)", key="range_end")
 
-# Sort by End Date (oldest → newest)
 df = df.sort_values("End Date").reset_index(drop=True)
 
-# Apply date range filter
 mask = (df["End Date"] >= start_filter) & (df["End Date"] <= end_filter)
-
 filtered_df = df[mask].copy()
 
-# Display summary table
 st.subheader("Filtered Sessions")
-st.dataframe(filtered_df.drop(columns=["EndDate_dt"]), use_container_width=True)
+st.dataframe(filtered_df, use_container_width=True)
 
-# Total cost in range
 total_cost = filtered_df["Cost"].sum()
 
-# Show summary
 st.subheader("Summary")
 st.write(f"**Total cost from {start_filter.strftime('%d/%m/%Y')} to {end_filter.strftime('%d/%m/%Y')}: £{total_cost:.2f}**")
-
