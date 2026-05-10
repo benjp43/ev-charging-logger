@@ -81,25 +81,25 @@ def load_csv():
             "End Date","Start","End","Duration (h)","kWh",
             "Night kWh","Day kWh","Cost","Off-Peak %"
         ])
-    return pd.read_csv(LOG_FILE, encoding="utf-8-sig")
 
-df = pd.read_csv(LOG_FILE)
+    df = pd.read_csv(LOG_FILE, encoding="utf-8-sig")
 
-# Sort by date (oldest → newest)
-df["Date_dt"] = pd.to_datetime(df["End Date"], format="%d/%m/%Y")
-df = df.sort_values("Date_dt").reset_index(drop=True)
-df = df.drop(columns=["Date_dt"])
+    # Convert End Date back to datetime
+    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce")
+
+    return df
 
 # -----------------------------
 # Save CSV
 # -----------------------------
 def save_csv(df):
-    df.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
+    df_to_save = df.copy()
+    df_to_save["End Date"] = df_to_save["End Date"].dt.strftime("%d/%m/%Y")
+    df_to_save.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
 
 # -----------------------------
 # Backfill missing columns
 # -----------------------------
-
 def backfill(df, night_rate, day_rate, night_start, night_end):
 
     import numpy as np
@@ -107,29 +107,23 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
     # Ensure calculated columns exist with correct dtypes
     if "Night kWh" not in df.columns:
         df["Night kWh"] = np.nan
-
     if "Day kWh" not in df.columns:
         df["Day kWh"] = np.nan
-
     if "Cost" not in df.columns:
         df["Cost"] = np.nan
-
     if "Off-Peak %" not in df.columns:
         df["Off-Peak %"] = pd.Series([None] * len(df), dtype="object")
 
     # Recalculate ALL rows
     for i, row in df.iterrows():
 
-        # 1. Parse end datetime
-        end_date = datetime.strptime(row["End Date"], "%d/%m/%Y").date()
+        end_dt = row["End Date"]
         end_time = datetime.strptime(row["End"], "%H:%M").time()
-        end_dt = datetime.combine(end_date, end_time)
+        end_dt = datetime.combine(end_dt.date(), end_time)
 
-        # 2. Rebuild start datetime using duration
         duration_h = float(row["Duration (h)"])
         start_dt = end_dt - timedelta(hours=duration_h)
 
-        # 3. Recalculate cost + night/day split
         kwh = float(row["kWh"])
 
         cost, night_kwh, day_kwh = split_cost(
@@ -140,15 +134,12 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
 
         offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
-        # 4. Write results back
         df.at[i, "Night kWh"] = round(night_kwh, 2)
         df.at[i, "Day kWh"] = round(day_kwh, 2)
         df.at[i, "Cost"] = round(cost, 2)
         df.at[i, "Off-Peak %"] = f"{offpeak}%"
 
     return df
-
-
 
 # -----------------------------
 # Streamlit UI
@@ -178,55 +169,29 @@ save_csv(df)
 # -----------------------------
 st.header("Add Charging Session")
 
-# Choose input mode
 mode = st.selectbox(
     "Choose input mode",
     ["Enter start date/time", "Enter end date/time"],
     key="mode_select"
 )
 
-# Dynamic input fields
 col1, col2 = st.columns(2)
 
 if mode == "Enter start date/time":
-    start_date_str = col1.text_input("Start date", placeholder="dd/mm/yyyy", key="start_date")
-    start_time_str = col2.text_input("Start time (HH:MM)", placeholder="HH:MM", key="start_time")
-    end_date_str = ""
-    end_time_str = ""
+    start_date = col1.date_input("Start date")
+    start_time = col2.time_input("Start time")
+    end_date = None
+    end_time = None
 else:
-    end_date_str = col1.text_input("End date", placeholder="dd/mm/yyyy", key="end_date")
-    end_time_str = col2.text_input("End time (HH:MM)", placeholder="HH:MM", key="end_time")
-    start_date_str = ""
-    start_time_str = ""
+    end_date = col1.date_input("End date")
+    end_time = col2.time_input("End time")
+    start_date = None
+    start_time = None
 
 duration = st.text_input("Duration (h or HH:MM)", placeholder="e.g. 1.5 or 01:30")
 kwh = st.number_input("Energy used (kWh)", min_value=0.0)
 
-# Helpers
-def parse_date(d):
-    if not d:
-        return None
-    try:
-        return datetime.strptime(d, "%d/%m/%Y").date()
-    except:
-        st.error("Dates must be in dd/mm/yyyy format.")
-        st.stop()
-
-def parse_time(t):
-    if not t:
-        return None
-    try:
-        return datetime.strptime(t, "%H:%M").time()
-    except:
-        st.error("Times must be in HH:MM format.")
-        st.stop()
-
 if st.button("Add session"):
-
-    sd = parse_date(start_date_str)
-    ed = parse_date(end_date_str)
-    stime = parse_time(start_time_str)
-    etime = parse_time(end_time_str)
 
     if not duration:
         st.error("Please enter a duration.")
@@ -234,24 +199,13 @@ if st.button("Add session"):
 
     duration_h = duration_to_hours(duration)
 
-    # Calculate missing datetime
     if mode == "Enter start date/time":
-        if not sd or not stime:
-            st.error("Start date and time required in this mode.")
-            st.stop()
-
-        start_dt = datetime.combine(sd, stime)
+        start_dt = datetime.combine(start_date, start_time)
         end_dt = start_dt + timedelta(hours=duration_h)
-
     else:
-        if not ed or not etime:
-            st.error("End date and time required in this mode.")
-            st.stop()
-
-        end_dt = datetime.combine(ed, etime)
+        end_dt = datetime.combine(end_date, end_time)
         start_dt = end_dt - timedelta(hours=duration_h)
 
-    # Cost breakdown
     cost, night_kwh, day_kwh = split_cost(
         start_dt, end_dt, kwh,
         night_rate, day_rate,
@@ -261,7 +215,7 @@ if st.button("Add session"):
     offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
     new_row = {
-        "End Date": end_dt.strftime("%d/%m/%Y"),  # ALWAYS first column
+        "End Date": end_dt,
         "Start": start_dt.strftime("%H:%M"),
         "End": end_dt.strftime("%H:%M"),
         "Duration (h)": round(duration_h, 2),
@@ -275,7 +229,6 @@ if st.button("Add session"):
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     save_csv(df)
     st.success("Session added!")
-
 
 # -----------------------------
 # Display table
@@ -367,7 +320,7 @@ end_filter = colB.date_input("End of range (End Date)", key="range_end")
 df["EndDate_dt"] = pd.to_datetime(df["End Date"], format="%d/%m/%Y")
 
 # Sort by End Date (oldest → newest)
-df = df.sort_values("EndDate_dt").reset_index(drop=True)
+df = df.sort_values("End Date").reset_index(drop=True)
 
 # Apply date range filter
 mask = (df["EndDate_dt"] >= pd.to_datetime(start_filter)) & \
