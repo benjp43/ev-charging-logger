@@ -214,3 +214,23 @@ difference = public_cost - total_cost
 
 st.write(f"At £{public_rate:.2f}/kWh, public charging would cost **£{public_cost:.2f}**")
 st.write(f"Difference vs home: **£{difference:.2f}**")
+
+st.subheader("Download CSV")
+
+if len(df) > 0:
+    start_date = df["Date"].iloc[0].replace("/", ".")
+    end_date = df["Date"].iloc[-1].replace("/", ".")
+    total_kwh = df["kWh"].sum()
+
+    filename = f"Charging history {start_date} to {end_date} {total_kwh:.2f}kWh.csv"
+
+    csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
+
+    st.download_button(
+        label="Download charging history CSV",
+        data=csv_bytes,
+        file_name=filename,
+        mime="text/csv"
+    )
+else:
+    st.info("No data available to download.")
