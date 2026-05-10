@@ -97,7 +97,7 @@ def load_csv():
 # -----------------------------
 def save_csv(df):
     df_to_save = df.copy()
-df_to_save["End Date"] = df_to_save["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
+    df_to_save["End Date"] = df_to_save["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
     df_to_save.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
 
 # -----------------------------
