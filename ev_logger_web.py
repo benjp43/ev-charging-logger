@@ -99,11 +99,20 @@ def save_csv(df):
 # -----------------------------
 # Backfill missing columns
 # -----------------------------
+
 def backfill(df, night_rate, day_rate, night_start, night_end):
+
+    # Ensure calculated columns exist
+    for col in ["Night kWh", "Day kWh", "Cost", "Off-Peak %"]:
+        if col not in df.columns:
+            df[col] = ""
+
     for i, row in df.iterrows():
-        if pd.isna(row["Night kWh"]) or row["Night kWh"] == "":
-            
-            # 1. Parse end datetime from CSV
+
+        # Recalculate if missing or blank
+        if row["Night kWh"] == "" or pd.isna(row["Night kWh"]):
+
+            # 1. Parse end datetime
             end_date = datetime.strptime(row["End Date"], "%d/%m/%Y").date()
             end_time = datetime.strptime(row["End"], "%H:%M").time()
             end_dt = datetime.combine(end_date, end_time)
@@ -123,15 +132,13 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
 
             offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
-            # 4. Write results back into the dataframe
+            # 4. Write results back
             df.at[i, "Night kWh"] = round(night_kwh, 2)
             df.at[i, "Day kWh"] = round(day_kwh, 2)
             df.at[i, "Cost"] = round(cost, 2)
             df.at[i, "Off-Peak %"] = f"{offpeak}%"
 
     return df
-
-
 
 # -----------------------------
 # Streamlit UI
