@@ -148,7 +148,7 @@ for col, dtype in dtype_map.items():
             df.at[i, "Cost"] = round(cost, 2)
             df.at[i, "Off-Peak %"] = f"{offpeak}%"
 
-    return df
+        return df
 
 # -----------------------------
 # Streamlit UI
