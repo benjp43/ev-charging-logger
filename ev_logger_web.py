@@ -41,6 +41,13 @@ def duration_to_hours(d):
         return h + m / 60
     return float(d)
 
+def parse_time_input(t):
+    try:
+        return datetime.strptime(t, "%H:%M").time()
+    except:
+        st.error("Time must be in HH:MM format")
+        st.stop()
+
 def split_cost(start_dt, end_dt, kwh, night_rate, day_rate, night_start, night_end):
     current = start_dt
     night_minutes = 0
@@ -84,10 +91,7 @@ def load_csv():
 
     df = pd.read_csv(LOG_FILE, encoding="utf-8-sig")
 
-    # Convert End Date to datetime (handles strings)
     df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce")
-
-    # Convert to pure date
     df["End Date"] = df["End Date"].dt.date
 
     return df
@@ -118,7 +122,7 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
 
     for i, row in df.iterrows():
 
-        end_date = row["End Date"]  # already a date
+        end_date = row["End Date"]
         end_time = datetime.strptime(row["End"], "%H:%M").time()
         end_dt = datetime.combine(end_date, end_time)
 
@@ -136,7 +140,7 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
         offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
         df.at[i, "Night kWh"] = round(night_kwh, 2)
-        df.at[i, "Day KWh"] = round(day_kwh, 2)
+        df.at[i, "Day kWh"] = round(day_kwh, 2)
         df.at[i, "Cost"] = round(cost, 2)
         df.at[i, "Off-Peak %"] = f"{offpeak}%"
 
@@ -178,40 +182,22 @@ mode = st.selectbox(
 
 col1, col2 = st.columns(2)
 
-# -----------------------------
-# TIME SPINNER WIDGET
-# -----------------------------
-def time_spinner(label_prefix, container):
-    col_h, col_m = container.columns([1, 1])
-
-    hour = col_h.number_input(f"{label_prefix} hour", min_value=0, max_value=23, step=1, value=0)
-    minute = col_m.number_input(f"{label_prefix} minute", min_value=0, max_value=59, step=1, value=0)
-
-    return datetime.strptime(f"{hour:02d}:{minute:02d}", "%H:%M").time()
-
-# -----------------------------
-# MODE: Start or End
-# -----------------------------
 if mode == "Enter start date/time":
     start_date = col1.date_input("Start date")
-    start_time = time_spinner("Start", col2)
+    start_time_str = col2.text_input("Start time (HH:MM)", placeholder="HH:MM")
+    start_time = parse_time_input(start_time_str)
     end_date = None
     end_time = None
 else:
     end_date = col1.date_input("End date")
-    end_time = time_spinner("End", col2)
+    end_time_str = col2.text_input("End time (HH:MM)", placeholder="HH:MM")
+    end_time = parse_time_input(end_time_str)
     start_date = None
     start_time = None
 
-# -----------------------------
-# Duration + kWh
-# -----------------------------
 duration = st.text_input("Duration (h or HH:MM)", placeholder="e.g. 1.5 or 01:30")
 kwh = st.number_input("Energy used (kWh)", min_value=0.0)
 
-# -----------------------------
-# Add Session Button
-# -----------------------------
 if st.button("Add session"):
 
     if not duration:
