@@ -103,8 +103,8 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
     for i, row in df.iterrows():
         if pd.isna(row["Night kWh"]) or row["Night kWh"] == "":
             start_dt = datetime.combine(date_dt.date(), datetime.strptime(row["Start"], "%H:%M").time())
-duration_h = float(row["Duration (h)"])
-end_dt = start_dt + timedelta(hours=duration_h)
+            duration_h = float(row["Duration (h)"])
+            end_dt = start_dt + timedelta(hours=duration_h)
 
             kwh = float(row["kWh"])
 
