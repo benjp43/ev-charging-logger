@@ -154,51 +154,72 @@ save_csv(df)
 # -----------------------------
 st.header("Add Charging Session")
 
-col1, col2, col3 = st.columns(3)
-date = col1.date_input("Date")
-start = col2.text_input("Start time (HH:MM)")
-end = col3.text_input("End time (HH:MM)")
+col1, col2 = st.columns(2)
+start_date = col1.date_input("Start date")
+start_time = col2.text_input("Start time (HH:MM)")
+
+col3, col4 = st.columns(2)
+end_date = col3.date_input("End date")
+end_time = col4.text_input("End time (HH:MM)")
 
 duration = st.text_input("Duration (h or HH:MM)")
 kwh = st.number_input("Energy used (kWh)", min_value=0.0)
 
 if st.button("Add session"):
-    # Require at least one time input
-    if not start and not end:
+
+    # Require at least start or end info
+    if not start_time and not end_time:
         st.error("Please enter a start or end time.")
         st.stop()
 
-    date_str = date.strftime("%d/%m/%Y")
+    # Build datetime objects safely
+    start_dt = None
+    end_dt = None
 
-    # Handle duration logic safely
+    # If start time provided
+    if start_time:
+        try:
+            start_dt = datetime.combine(start_date, datetime.strptime(start_time, "%H:%M").time())
+        except:
+            st.error("Invalid start time format.")
+            st.stop()
+
+    # If end time provided
+    if end_time:
+        try:
+            end_dt = datetime.combine(end_date, datetime.strptime(end_time, "%H:%M").time())
+        except:
+            st.error("Invalid end time format.")
+            st.stop()
+
+    # Duration logic
     if duration:
         duration_h = duration_to_hours(duration)
 
-        if start:
-            # Calculate end from start + duration
-            start_dt = datetime.combine(date, datetime.strptime(start, "%H:%M").time())
+        if start_dt and not end_dt:
             end_dt = start_dt + timedelta(hours=duration_h)
-            end = end_dt.strftime("%H:%M")
 
-        elif end:
-            # Calculate start from end - duration
-            end_dt = datetime.combine(date, datetime.strptime(end, "%H:%M").time())
+        elif end_dt and not start_dt:
             start_dt = end_dt - timedelta(hours=duration_h)
-            start = start_dt.strftime("%H:%M")
 
-    elif start and end:
-        # Calculate duration from start and end
-        start_dt = datetime.combine(date, datetime.strptime(start, "%H:%M").time())
-        end_dt = datetime.combine(date, datetime.strptime(end, "%H:%M").time())
-        if end_dt < start_dt:
-            end_dt += timedelta(days=1)
-        duration_h = (end_dt - start_dt).total_seconds() / 3600
+        elif start_dt and end_dt:
+            pass  # ignore duration, both times given
+
+        else:
+            st.error("Not enough information to calculate session times.")
+            st.stop()
 
     else:
-        st.error("Please enter either a duration or both start and end times.")
-        st.stop()
+        # No duration given → calculate it
+        if start_dt and end_dt:
+            if end_dt < start_dt:
+                end_dt += timedelta(days=1)
+            duration_h = (end_dt - start_dt).total_seconds() / 3600
+        else:
+            st.error("Please enter a duration or both start and end times.")
+            st.stop()
 
-    # Compute cost breakdown
+    # Cost breakdown
     cost, night_kwh, day_kwh = split_cost(
         start_dt, end_dt, kwh,
         night_rate, day_rate,
@@ -208,13 +229,13 @@ if st.button("Add session"):
     offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
     new_row = {
-        "Date": date_str,
-        "Start": start,
-        "End": end,
+        "Date": start_dt.strftime("%d/%m/%Y"),  # ALWAYS true start date
+        "Start": start_dt.strftime("%H:%M"),
+        "End": end_dt.strftime("%H:%M"),
         "Duration (h)": round(duration_h, 2),
         "kWh": kwh,
         "Night kWh": round(night_kwh, 2),
-        "Day kWh": round(day_kwh, 2),
+        "Day KWh": round(day_kwh, 2),
         "Cost": round(cost, 2),
         "Off-Peak %": f"{offpeak}%"
     }
@@ -222,8 +243,6 @@ if st.button("Add session"):
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     save_csv(df)
     st.success("Session added!")
-
-
 
 # -----------------------------
 # Display table
