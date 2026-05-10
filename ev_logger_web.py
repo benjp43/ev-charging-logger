@@ -259,11 +259,7 @@ if st.button("Add session"):
 
 st.subheader("Charging History")
 
-# Convert End Date to datetime for sorting
 df = df.sort_values("End Date").reset_index(drop=True)
-
-# Sort oldest → newest
-df = df.sort_values("EndDate_dt").reset_index(drop=True)
 
 # Show table
 st.dataframe(df, use_container_width=True)
