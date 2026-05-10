@@ -102,9 +102,14 @@ def save_csv(df):
 def backfill(df, night_rate, day_rate, night_start, night_end):
     for i, row in df.iterrows():
         if pd.isna(row["Night kWh"]) or row["Night kWh"] == "":
-            start_dt = datetime.combine(date_dt.date(), datetime.strptime(row["Start"], "%H:%M").time())
+            # Use the End Date from the row
+            end_date = datetime.strptime(row["End Date"], "%d/%m/%Y").date()
+            end_time = datetime.strptime(row["End"], "%H:%M").time()
+            end_dt = datetime.combine(end_date, end_time)
+
+            # Calculate start datetime using duration
             duration_h = float(row["Duration (h)"])
-            end_dt = start_dt + timedelta(hours=duration_h)
+            start_dt = end_dt - timedelta(hours=duration_h)
 
             kwh = float(row["kWh"])
 
@@ -117,11 +122,12 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
             offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
             df.at[i, "Night kWh"] = round(night_kwh, 2)
-            df.at[i, "Day KWh"] = round(day_kwh, 2)
+            df.at[i, "Day kWh"] = round(day_kwh, 2)
             df.at[i, "Cost"] = round(cost, 2)
             df.at[i, "Off-Peak %"] = f"{offpeak}%"
 
     return df
+
 
 # -----------------------------
 # Streamlit UI
