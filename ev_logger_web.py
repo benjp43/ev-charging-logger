@@ -169,7 +169,7 @@ if st.button("Add session"):
         "Off-Peak %": f"{offpeak}%"
     }
 
-    df = df.append(new_row, ignore_index=True)
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     save_csv(df)
     st.success("Session added!")
 
