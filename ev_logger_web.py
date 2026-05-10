@@ -150,82 +150,82 @@ df = backfill(df, night_rate, day_rate, night_start, night_end)
 save_csv(df)
 
 # -----------------------------
-# Add new session
+# Add Charging Session
 # -----------------------------
 st.header("Add Charging Session")
 
-from datetime import date
+# Choose input mode
+mode = st.selectbox(
+    "Choose input mode",
+    ["Enter start date/time", "Enter end date/time"],
+    key="mode_select"
+)
 
+# Dynamic input fields
 col1, col2 = st.columns(2)
-start_date = col1.date_input("Start date", value=date.today(), key="start_date")
-start_time = col2.text_input("Start time (HH:MM)", key="start_time")
 
-col3, col4 = st.columns(2)
-end_date = col3.date_input("End date", value=date.today(), key="end_date")
-end_time = col4.text_input("End time (HH:MM)", key="end_time")
+if mode == "Enter start date/time":
+    start_date_str = col1.text_input("Start date", placeholder="dd/mm/yyyy", key="start_date")
+    start_time_str = col2.text_input("Start time (HH:MM)", placeholder="HH:MM", key="start_time")
+    end_date_str = ""
+    end_time_str = ""
+else:
+    end_date_str = col1.text_input("End date", placeholder="dd/mm/yyyy", key="end_date")
+    end_time_str = col2.text_input("End time (HH:MM)", placeholder="HH:MM", key="end_time")
+    start_date_str = ""
+    start_time_str = ""
 
-duration = st.text_input("Duration (h or HH:MM)")
+duration = st.text_input("Duration (h or HH:MM)", placeholder="e.g. 1.5 or 01:30")
 kwh = st.number_input("Energy used (kWh)", min_value=0.0)
 
-# Treat unchanged default dates as "blank"
-if start_date == date.today():
-    start_date = None
-if end_date == date.today():
-    end_date = None
+# Helpers
+def parse_date(d):
+    if not d:
+        return None
+    try:
+        return datetime.strptime(d, "%d/%m/%Y").date()
+    except:
+        st.error("Dates must be in dd/mm/yyyy format.")
+        st.stop()
+
+def parse_time(t):
+    if not t:
+        return None
+    try:
+        return datetime.strptime(t, "%H:%M").time()
+    except:
+        st.error("Times must be in HH:MM format.")
+        st.stop()
 
 if st.button("Add session"):
 
-    # Require at least start or end info
-    if not start_time and not end_time:
-        st.error("Please enter a start or end time.")
+    sd = parse_date(start_date_str)
+    ed = parse_date(end_date_str)
+    stime = parse_time(start_time_str)
+    etime = parse_time(end_time_str)
+
+    if not duration:
+        st.error("Please enter a duration.")
         st.stop()
 
-    # Build datetime objects safely
-    start_dt = None
-    end_dt = None
+    duration_h = duration_to_hours(duration)
 
-    # If start time provided
-    if start_time:
-        try:
-            start_dt = datetime.combine(start_date, datetime.strptime(start_time, "%H:%M").time())
-        except:
-            st.error("Invalid start time format.")
+    # Calculate missing datetime
+    if mode == "Enter start date/time":
+        if not sd or not stime:
+            st.error("Start date and time required in this mode.")
             st.stop()
 
-    # If end time provided
-    if end_time:
-        try:
-            end_dt = datetime.combine(end_date, datetime.strptime(end_time, "%H:%M").time())
-        except:
-            st.error("Invalid end time format.")
-            st.stop()
-
-    # Duration logic
-    if duration:
-        duration_h = duration_to_hours(duration)
-
-        if start_dt and not end_dt:
-            end_dt = start_dt + timedelta(hours=duration_h)
-
-        elif end_dt and not start_dt:
-            start_dt = end_dt - timedelta(hours=duration_h)
-
-        elif start_dt and end_dt:
-            pass  # ignore duration, both times given
-
-        else:
-            st.error("Not enough information to calculate session times.")
-            st.stop()
+        start_dt = datetime.combine(sd, stime)
+        end_dt = start_dt + timedelta(hours=duration_h)
 
     else:
-        # No duration given → calculate it
-        if start_dt and end_dt:
-            if end_dt < start_dt:
-                end_dt += timedelta(days=1)
-            duration_h = (end_dt - start_dt).total_seconds() / 3600
-        else:
-            st.error("Please enter a duration or both start and end times.")
+        if not ed or not etime:
+            st.error("End date and time required in this mode.")
             st.stop()
+
+        end_dt = datetime.combine(ed, etime)
+        start_dt = end_dt - timedelta(hours=duration_h)
 
     # Cost breakdown
     cost, night_kwh, day_kwh = split_cost(
@@ -237,13 +237,13 @@ if st.button("Add session"):
     offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
     new_row = {
-        "Date": start_dt.strftime("%d/%m/%Y"),  # ALWAYS true start date
+        "End Date": end_dt.strftime("%d/%m/%Y"),  # ALWAYS first column
         "Start": start_dt.strftime("%H:%M"),
         "End": end_dt.strftime("%H:%M"),
         "Duration (h)": round(duration_h, 2),
         "kWh": kwh,
         "Night kWh": round(night_kwh, 2),
-        "Day KWh": round(day_kwh, 2),
+        "Day kWh": round(day_kwh, 2),
         "Cost": round(cost, 2),
         "Off-Peak %": f"{offpeak}%"
     }
@@ -252,15 +252,25 @@ if st.button("Add session"):
     save_csv(df)
     st.success("Session added!")
 
+
 # -----------------------------
 # Display table
 # -----------------------------
 
-df["Date_dt"] = pd.to_datetime(df["Date"], format="%d/%m/%Y")
-df = df.sort_values("Date_dt").reset_index(drop=True)
-df = df.drop(columns=["Date_dt"])
-
 st.subheader("Charging History")
+
+# Convert End Date to datetime for sorting
+df["EndDate_dt"] = pd.to_datetime(df["End Date"], format="%d/%m/%Y")
+
+# Sort oldest → newest
+df = df.sort_values("EndDate_dt").reset_index(drop=True)
+
+# Remove helper column
+df = df.drop(columns=["EndDate_dt"])
+
+# Show table
+st.dataframe(df, use_container_width=True)
+
 st.dataframe(df, use_container_width=True)
 
 # -----------------------------
@@ -327,30 +337,30 @@ total_cost = df["Cost"].sum()
 st.header("Custom date range summary")
 
 colA, colB = st.columns(2)
-start_filter = colA.date_input("Start date", key="custom_range_start")
-end_filter = colB.date_input("End date", key="custom_range_end")
 
-# Convert df["Date"] to datetime
-df_dates = df.copy()
-df_dates["Date_dt"] = pd.to_datetime(df_dates["Date"], format="%d/%m/%Y")
+start_filter = colA.date_input("Start of range (End Date)", key="range_start")
+end_filter = colB.date_input("End of range (End Date)", key="range_end")
 
-# Filter
-mask = (df_dates["Date_dt"] >= pd.to_datetime(start_filter)) & \
-       (df_dates["Date_dt"] <= pd.to_datetime(end_filter))
+# Convert End Date to datetime
+df["EndDate_dt"] = pd.to_datetime(df["End Date"], format="%d/%m/%Y")
 
-df_range = df_dates[mask]
+# Sort by End Date (oldest → newest)
+df = df.sort_values("EndDate_dt").reset_index(drop=True)
 
-# Compute summary
-num_sessions_range = len(df_range)
-total_cost_range = df_range["Cost"].sum()
+# Apply date range filter
+mask = (df["EndDate_dt"] >= pd.to_datetime(start_filter)) & \
+       (df["EndDate_dt"] <= pd.to_datetime(end_filter))
 
-if num_sessions_range > 0:
-    first_date_r = df_range["Date"].iloc[0]
-    last_date_r = df_range["Date"].iloc[-1]
+filtered_df = df[mask].copy()
 
-    st.subheader(
-        f"Total home charging cost with {num_sessions_range} sessions "
-        f"between {first_date_r} and {last_date_r}: £{total_cost_range:.2f}"
-    )
-else:
-    st.info("No charging sessions found in this date range.")
+# Display summary table
+st.subheader("Filtered Sessions")
+st.dataframe(filtered_df.drop(columns=["EndDate_dt"]), use_container_width=True)
+
+# Total cost in range
+total_cost = filtered_df["Cost"].sum()
+
+# Show summary
+st.subheader("Summary")
+st.write(f"**Total cost from {start_filter.strftime('%d/%m/%Y')} to {end_filter.strftime('%d/%m/%Y')}: £{total_cost:.2f}**")
+
