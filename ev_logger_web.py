@@ -263,8 +263,9 @@ total_kwh = df["kWh"].sum()
 if num_sessions > 0:
     st.subheader(
         f"Total home charging cost with {num_sessions} sessions "
-        f"between {first_date} and {last_date}: £{total_cost:.2f}"
+        f"between {first_date.strftime('%d/%m/%Y')} and {last_date.strftime('%d/%m/%Y')}: £{total_cost:.2f}"
     )
+
 else:
     st.subheader("No charging sessions recorded yet.")
 
