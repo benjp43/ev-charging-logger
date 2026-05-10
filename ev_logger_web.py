@@ -155,12 +155,11 @@ save_csv(df)
 st.header("Add Charging Session")
 
 col1, col2 = st.columns(2)
-start_date = col1.date_input("Start date")
-start_time = col2.text_input("Start time (HH:MM)")
+start_date = col1.date_input("Start date", value=None, key="start_date")
+start_time = col2.text_input("Start time (HH:MM)", key="start_time")
 
-col3, col4 = st.columns(2)
-end_date = col3.date_input("End date")
-end_time = col4.text_input("End time (HH:MM)")
+end_date = col3.date_input("End date", value=None, key="end_date")
+end_time = col4.text_input("End time (HH:MM)", key="end_time")
 
 duration = st.text_input("Duration (h or HH:MM)")
 kwh = st.number_input("Energy used (kWh)", min_value=0.0)
