@@ -83,6 +83,13 @@ def load_csv():
         ])
     return pd.read_csv(LOG_FILE, encoding="utf-8-sig")
 
+df = pd.read_csv(LOG_FILE)
+
+# Sort by date (oldest → newest)
+df["Date_dt"] = pd.to_datetime(df["Date"], format="%d/%m/%Y")
+df = df.sort_values("Date_dt").reset_index(drop=True)
+df = df.drop(columns=["Date_dt"])
+
 # -----------------------------
 # Save CSV
 # -----------------------------
