@@ -102,13 +102,10 @@ def save_csv(df):
 def backfill(df, night_rate, day_rate, night_start, night_end):
     for i, row in df.iterrows():
         if pd.isna(row["Night kWh"]) or row["Night kWh"] == "":
-            date_dt = datetime.strptime(row["End Date"], "%d/%m/%Y")
             start_dt = datetime.combine(date_dt.date(), datetime.strptime(row["Start"], "%H:%M").time())
-            end_dt = datetime.combine(date_dt.date(), datetime.strptime(row["End"], "%H:%M").time())
-            if end_dt < start_dt:
-                end_dt += timedelta(days=1)
+duration_h = float(row["Duration (h)"])
+end_dt = start_dt + timedelta(hours=duration_h)
 
-            duration_h = float(row["Duration (h)"])
             kwh = float(row["kWh"])
 
             cost, night_kwh, day_kwh = split_cost(
