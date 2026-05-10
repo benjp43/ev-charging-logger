@@ -84,10 +84,14 @@ def load_csv():
 
     df = pd.read_csv(LOG_FILE, encoding="utf-8-sig")
 
-    # Convert End Date back to datetime
+    # Convert End Date to datetime (handles strings)
     df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce")
 
+    # Convert to pure date (drops time)
+    df["End Date"] = df["End Date"].dt.date
+
     return df
+
 
 # -----------------------------
 # Save CSV
