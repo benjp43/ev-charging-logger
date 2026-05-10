@@ -244,7 +244,9 @@ st.subheader("Charging History")
 
 df = df.sort_values("End Date").reset_index(drop=True)
 
-st.dataframe(df, use_container_width=True)
+df_display = df.copy()
+df_display["End Date"] = df_display["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
+st.dataframe(df_display, use_container_width=True)
 
 # -----------------------------
 # Totals + public comparison
@@ -311,7 +313,9 @@ mask = (df["End Date"] >= start_filter) & (df["End Date"] <= end_filter)
 filtered_df = df[mask].copy()
 
 st.subheader("Filtered Sessions")
-st.dataframe(filtered_df, use_container_width=True)
+filtered_display = filtered_df.copy()
+filtered_display["End Date"] = filtered_display["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
+st.dataframe(filtered_display, use_container_width=True)
 
 total_cost = filtered_df["Cost"].sum()
 
