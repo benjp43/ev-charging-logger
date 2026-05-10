@@ -212,9 +212,12 @@ if st.button("Add session"):
 # Display table
 # -----------------------------
 
+df["Date_dt"] = pd.to_datetime(df["Date"], format="%d/%m/%Y")
+df = df.sort_values("Date_dt").reset_index(drop=True)
+df = df.drop(columns=["Date_dt"])
+
+st.subheader("Charging History")
 st.dataframe(df, use_container_width=True)
-st.header("Charging History")
-st.dataframe(df)
 
 # -----------------------------
 # Totals + public comparison
