@@ -117,9 +117,9 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
     # Recalculate ALL rows
     for i, row in df.iterrows():
 
-        end_dt = row["End Date"]
+        end_date = row["End Date"]  # already a date
         end_time = datetime.strptime(row["End"], "%H:%M").time()
-        end_dt = datetime.combine(end_dt.date(), end_time)
+        end_dt = datetime.combine(end_date, end_time)
 
         duration_h = float(row["Duration (h)"])
         start_dt = end_dt - timedelta(hours=duration_h)
@@ -235,7 +235,7 @@ if st.button("Add session"):
     offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
     new_row = {
-        "End Date": end_dt,
+        "End Date": end_dt.date(),        
         "Start": start_dt.strftime("%H:%M"),
         "End": end_dt.strftime("%H:%M"),
         "Duration (h)": round(duration_h, 2),
