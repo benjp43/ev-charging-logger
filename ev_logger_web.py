@@ -129,7 +129,7 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
 # -----------------------------
 # Streamlit UI
 # -----------------------------
-st.title("⚡ EV Charging Logger (Web Version)")
+st.title("⚡ Ben's EV Charging Logger")
 
 st.sidebar.header("Settings")
 
@@ -211,6 +211,8 @@ if st.button("Add session"):
 # -----------------------------
 # Display table
 # -----------------------------
+
+st.dataframe(df, use_container_width=True)
 st.header("Charging History")
 st.dataframe(df)
 
