@@ -1,4 +1,4 @@
-﻿Date,Start,End,Duration (h),kWh,Night kWh,Day kWh,Cost,Off-Peak %
+﻿End Date,Start,End,Duration (h),kWh,Night kWh,Day kWh,Cost,Off-Peak %
 13/03/2026,19:29,06:12,10.72,32.85,17.47,15.38,7.8,50%
 14/03/2026,06:13,07:34,1.35,3.99,3.79,0.2,0.63,90%
 14/03/2026,22:30,06:01,7.52,14.21,10.43,3.78,2.84,90%
