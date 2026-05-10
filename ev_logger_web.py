@@ -104,10 +104,18 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
 
     import numpy as np
 
-    # Ensure calculated columns exist
-    for col in ["Night kWh", "Day kWh", "Cost", "Off-Peak %"]:
-        if col not in df.columns:
-            df[col] = np.nan
+# Ensure calculated columns exist with correct dtypes
+if "Night kWh" not in df.columns:
+    df["Night kWh"] = np.nan
+
+if "Day kWh" not in df.columns:
+    df["Day kWh"] = np.nan
+
+if "Cost" not in df.columns:
+    df["Cost"] = np.nan
+
+if "Off-Peak %" not in df.columns:
+    df["Off-Peak %"] = pd.Series([None] * len(df), dtype="object")
 
     for i, row in df.iterrows():
 
