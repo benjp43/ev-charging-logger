@@ -207,8 +207,13 @@ st.dataframe(df)
 total_cost = df["Cost"].sum()
 total_kwh = df["kWh"].sum()
 
-st.subheader(f"Total home charging cost: £{total_cost:.2f}")
-
+if num_sessions > 0:
+    st.subheader(
+        f"Total home charging cost with {num_sessions} sessions "
+        f"between {first_date} and {last_date}: £{total_cost:.2f}"
+    )
+else:
+    st.subheader("No charging sessions recorded yet.")
 public_cost = total_kwh * public_rate
 difference = public_cost - total_cost
 
@@ -234,3 +239,54 @@ if len(df) > 0:
     )
 else:
     st.info("No data available to download.")
+
+# Compute summary info
+num_sessions = len(df)
+
+if num_sessions > 0:
+    first_date = df["Date"].iloc[0]
+    last_date = df["Date"].iloc[-1]
+else:
+    first_date = last_date = None
+
+total_cost = df["Cost"].sum()
+
+st.header("Custom date range summary")
+
+colA, colB = st.columns(2)
+start_filter = colA.date_input("Start date")
+end_filter = colB.date_input("End date")
+
+# -----------------------------
+# Custom date range summary
+# -----------------------------
+st.header("Custom date range summary")
+
+colA, colB = st.columns(2)
+start_filter = colA.date_input("Start date")
+end_filter = colB.date_input("End date")
+
+# Convert df["Date"] to datetime
+df_dates = df.copy()
+df_dates["Date_dt"] = pd.to_datetime(df_dates["Date"], format="%d/%m/%Y")
+
+# Filter
+mask = (df_dates["Date_dt"] >= pd.to_datetime(start_filter)) & \
+       (df_dates["Date_dt"] <= pd.to_datetime(end_filter))
+
+df_range = df_dates[mask]
+
+# Compute summary
+num_sessions_range = len(df_range)
+total_cost_range = df_range["Cost"].sum()
+
+if num_sessions_range > 0:
+    first_date_r = df_range["Date"].iloc[0]
+    last_date_r = df_range["Date"].iloc[-1]
+
+    st.subheader(
+        f"Total home charging cost with {num_sessions_range} sessions "
+        f"between {first_date_r} and {last_date_r}: £{total_cost_range:.2f}"
+    )
+else:
+    st.info("No charging sessions found in this date range.")
