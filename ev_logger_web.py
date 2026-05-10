@@ -97,7 +97,7 @@ def load_csv():
 # -----------------------------
 def save_csv(df):
     df_to_save = df.copy()
-    df_to_save["End Date"] = df_to_save["End Date"].dt.strftime("%d/%m/%Y")
+df_to_save["End Date"] = df_to_save["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
     df_to_save.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
 
 # -----------------------------
@@ -260,13 +260,10 @@ if st.button("Add session"):
 st.subheader("Charging History")
 
 # Convert End Date to datetime for sorting
-df["EndDate_dt"] = pd.to_datetime(df["End Date"], format="%d/%m/%Y")
+df = df.sort_values("End Date").reset_index(drop=True)
 
 # Sort oldest → newest
 df = df.sort_values("EndDate_dt").reset_index(drop=True)
-
-# Remove helper column
-df = df.drop(columns=["EndDate_dt"])
 
 # Show table
 st.dataframe(df, use_container_width=True)
@@ -339,15 +336,11 @@ colA, colB = st.columns(2)
 start_filter = colA.date_input("Start of range (End Date)", key="range_start")
 end_filter = colB.date_input("End of range (End Date)", key="range_end")
 
-# Convert End Date to datetime
-df["EndDate_dt"] = pd.to_datetime(df["End Date"], format="%d/%m/%Y")
-
 # Sort by End Date (oldest → newest)
 df = df.sort_values("End Date").reset_index(drop=True)
 
 # Apply date range filter
-mask = (df["EndDate_dt"] >= pd.to_datetime(start_filter)) & \
-       (df["EndDate_dt"] <= pd.to_datetime(end_filter))
+mask = (df["End Date"] >= start_filter) & (df["End Date"] <= end_filter)
 
 filtered_df = df[mask].copy()
 
