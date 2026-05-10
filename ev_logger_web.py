@@ -78,7 +78,7 @@ def split_cost(start_dt, end_dt, kwh, night_rate, day_rate, night_start, night_e
 def load_csv():
     if not os.path.exists(LOG_FILE):
         return pd.DataFrame(columns=[
-            "Date","Start","End","Duration (h)","kWh",
+            "End Date","Start","End","Duration (h)","kWh",
             "Night kWh","Day kWh","Cost","Off-Peak %"
         ])
     return pd.read_csv(LOG_FILE, encoding="utf-8-sig")
@@ -86,7 +86,7 @@ def load_csv():
 df = pd.read_csv(LOG_FILE)
 
 # Sort by date (oldest → newest)
-df["Date_dt"] = pd.to_datetime(df["Date"], format="%d/%m/%Y")
+df["Date_dt"] = pd.to_datetime(df["End Date"], format="%d/%m/%Y")
 df = df.sort_values("Date_dt").reset_index(drop=True)
 df = df.drop(columns=["Date_dt"])
 
@@ -102,7 +102,7 @@ def save_csv(df):
 def backfill(df, night_rate, day_rate, night_start, night_end):
     for i, row in df.iterrows():
         if pd.isna(row["Night kWh"]) or row["Night kWh"] == "":
-            date_dt = datetime.strptime(row["Date"], "%d/%m/%Y")
+            date_dt = datetime.strptime(row["End Date"], "%d/%m/%Y")
             start_dt = datetime.combine(date_dt.date(), datetime.strptime(row["Start"], "%H:%M").time())
             end_dt = datetime.combine(date_dt.date(), datetime.strptime(row["End"], "%H:%M").time())
             if end_dt < start_dt:
@@ -281,8 +281,8 @@ st.dataframe(df, use_container_width=True)
 num_sessions = len(df)
 
 if num_sessions > 0:
-    first_date = df["Date"].iloc[0]
-    last_date = df["Date"].iloc[-1]
+    first_date = df["End Date"].iloc[0]
+    last_date = df["End Date"].iloc[-1]
 
 total_cost = df["Cost"].sum()
 total_kwh = df["kWh"].sum()
@@ -303,8 +303,8 @@ st.write(f"Difference vs home: **£{difference:.2f}**")
 st.subheader("Download CSV")
 
 if len(df) > 0:
-    start_date = df["Date"].iloc[0].replace("/", ".")
-    end_date = df["Date"].iloc[-1].replace("/", ".")
+    start_date = df["End Date"].iloc[0].replace("/", ".")
+    end_date = df["End Date"].iloc[-1].replace("/", ".")
     total_kwh = df["kWh"].sum()
 
     filename = f"Charging history {start_date} to {end_date} {total_kwh:.2f}kWh.csv"
