@@ -294,8 +294,9 @@ st.write(f"Difference vs home: **£{difference:.2f}**")
 st.subheader("Download CSV")
 
 if len(df) > 0:
-    start_date = df["End Date"].iloc[0].replace("/", ".")
-    end_date = df["End Date"].iloc[-1].replace("/", ".")
+    start_date = df["End Date"].iloc[0].strftime("%d.%m.%Y")
+    end_date = df["End Date"].iloc[-1].strftime("%d.%m.%Y")
+
     total_kwh = df["kWh"].sum()
 
     filename = f"Charging history {start_date} to {end_date} {total_kwh:.2f}kWh.csv"
