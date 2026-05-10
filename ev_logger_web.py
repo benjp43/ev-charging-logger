@@ -324,8 +324,8 @@ else:
 num_sessions = len(df)
 
 if num_sessions > 0:
-    first_date = df["Date"].iloc[0]
-    last_date = df["Date"].iloc[-1]
+    first_date = df["End Date"].iloc[0]
+    last_date = df["End Date"].iloc[-1]
 else:
     first_date = last_date = None
 
