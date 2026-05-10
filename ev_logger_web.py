@@ -102,53 +102,43 @@ def save_csv(df):
 
 def backfill(df, night_rate, day_rate, night_start, night_end):
 
-    # Ensure calculated columns exist
-
     import numpy as np
 
-dtype_map = {
-    "Night kWh": float,
-    "Day kWh": float,
-    "Cost": float,
-    "Off-Peak %": object
-}
-
-for col, dtype in dtype_map.items():
-    if col not in df.columns:
-        df[col] = pd.Series([np.nan] * len(df), dtype=dtype)
+    # Ensure calculated columns exist
+    for col in ["Night kWh", "Day kWh", "Cost", "Off-Peak %"]:
+        if col not in df.columns:
+            df[col] = np.nan
 
     for i, row in df.iterrows():
 
-        # Recalculate if missing or blank
-        if row["Night kWh"] == "" or pd.isna(row["Night kWh"]):
+        # 1. Parse end datetime
+        end_date = datetime.strptime(row["End Date"], "%d/%m/%Y").date()
+        end_time = datetime.strptime(row["End"], "%H:%M").time()
+        end_dt = datetime.combine(end_date, end_time)
 
-            # 1. Parse end datetime
-            end_date = datetime.strptime(row["End Date"], "%d/%m/%Y").date()
-            end_time = datetime.strptime(row["End"], "%H:%M").time()
-            end_dt = datetime.combine(end_date, end_time)
+        # 2. Rebuild start datetime using duration
+        duration_h = float(row["Duration (h)"])
+        start_dt = end_dt - timedelta(hours=duration_h)
 
-            # 2. Rebuild start datetime using duration
-            duration_h = float(row["Duration (h)"])
-            start_dt = end_dt - timedelta(hours=duration_h)
+        # 3. Recalculate cost + night/day split
+        kwh = float(row["kWh"])
 
-            # 3. Recalculate cost + night/day split
-            kwh = float(row["kWh"])
+        cost, night_kwh, day_kwh = split_cost(
+            start_dt, end_dt, kwh,
+            night_rate, day_rate,
+            night_start, night_end
+        )
 
-            cost, night_kwh, day_kwh = split_cost(
-                start_dt, end_dt, kwh,
-                night_rate, day_rate,
-                night_start, night_end
-            )
+        offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
-            offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
+        # 4. Write results back
+        df.at[i, "Night kWh"] = round(night_kwh, 2)
+        df.at[i, "Day kWh"] = round(day_kwh, 2)
+        df.at[i, "Cost"] = round(cost, 2)
+        df.at[i, "Off-Peak %"] = f"{offpeak}%"
 
-            # 4. Write results back
-            df.at[i, "Night kWh"] = round(night_kwh, 2)
-            df.at[i, "Day kWh"] = round(day_kwh, 2)
-            df.at[i, "Cost"] = round(cost, 2)
-            df.at[i, "Off-Peak %"] = f"{offpeak}%"
+    return df
 
-        return df
 
 # -----------------------------
 # Streamlit UI
