@@ -271,8 +271,6 @@ df = df.drop(columns=["EndDate_dt"])
 # Show table
 st.dataframe(df, use_container_width=True)
 
-st.dataframe(df, use_container_width=True)
-
 # -----------------------------
 # Totals + public comparison
 # -----------------------------
