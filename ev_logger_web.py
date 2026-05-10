@@ -157,6 +157,12 @@ duration = st.text_input("Duration (h or HH:MM)")
 kwh = st.number_input("Energy used (kWh)", min_value=0.0)
 
 if st.button("Add session"):
+    if not start:
+        st.error("Please enter a start time.")
+        st.stop()
+    if not end and not duration:
+        st.error("Please enter an end time or a duration.")
+        st.stop()
     date_str = date.strftime("%d/%m/%Y")
 
     if duration:
@@ -204,6 +210,14 @@ st.dataframe(df)
 # -----------------------------
 # Totals + public comparison
 # -----------------------------
+
+# Compute session count and date range
+num_sessions = len(df)
+
+if num_sessions > 0:
+    first_date = df["Date"].iloc[0]
+    last_date = df["Date"].iloc[-1]
+
 total_cost = df["Cost"].sum()
 total_kwh = df["kWh"].sum()
 
