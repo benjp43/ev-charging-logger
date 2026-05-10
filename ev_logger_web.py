@@ -268,8 +268,8 @@ total_cost = df["Cost"].sum()
 st.header("Custom date range summary")
 
 colA, colB = st.columns(2)
-start_filter = colA.date_input("Start date")
-end_filter = colB.date_input("End date")
+start_filter = colA.date_input("Start date", key="range_start")
+end_filter = colB.date_input("End date", key="range_end")
 
 # -----------------------------
 # Custom date range summary
@@ -277,8 +277,8 @@ end_filter = colB.date_input("End date")
 st.header("Custom date range summary")
 
 colA, colB = st.columns(2)
-start_filter = colA.date_input("Start date")
-end_filter = colB.date_input("End date")
+start_filter = colA.date_input("Start date", key="range_start")
+end_filter = colB.date_input("End date", key="range_end")
 
 # Convert df["Date"] to datetime
 df_dates = df.copy()
