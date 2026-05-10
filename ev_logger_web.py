@@ -103,9 +103,19 @@ def save_csv(df):
 def backfill(df, night_rate, day_rate, night_start, night_end):
 
     # Ensure calculated columns exist
-    for col in ["Night kWh", "Day kWh", "Cost", "Off-Peak %"]:
-        if col not in df.columns:
-            df[col] = ""
+
+    import numpy as np
+
+dtype_map = {
+    "Night kWh": float,
+    "Day kWh": float,
+    "Cost": float,
+    "Off-Peak %": object
+}
+
+for col, dtype in dtype_map.items():
+    if col not in df.columns:
+        df[col] = pd.Series([np.nan] * len(df), dtype=dtype)
 
     for i, row in df.iterrows():
 
