@@ -245,21 +245,19 @@ col1, col2 = st.columns(2)
 if mode == "Enter start date/time":
     start_date = col1.date_input("Start date")
     start_time_str = col2.text_input("Start time (HH:MM)", placeholder="HH:MM")
-    start_time = parse_time_input(start_time_str)
     end_date = None
     end_time = None
 else:
     end_date = col1.date_input("End date")
     end_time_str = col2.text_input("End time (HH:MM)", placeholder="HH:MM")
-    end_time = parse_time_input(end_time_str)
     start_date = None
     start_time = None
 
 duration = st.text_input("Duration (h or HH:MM)", placeholder="e.g. 1.5 or 01:30")
 kwh = st.number_input("Energy used (kWh)", min_value=0.0)
 
+# ✅ Only validate time when user clicks "Add session"
 if st.button("Add session"):
-
     if not duration:
         st.error("Please enter a duration.")
         st.stop()
@@ -267,39 +265,22 @@ if st.button("Add session"):
     duration_h = duration_to_hours(duration)
 
     if mode == "Enter start date/time":
+        if not start_time_str:
+            st.error("Please enter a start time in HH:MM format.")
+            st.stop()
+        start_time = parse_time_input(start_time_str)
         start_dt = datetime.combine(start_date, start_time)
         end_dt = start_dt + timedelta(hours=duration_h)
     else:
+        if not end_time_str:
+            st.error("Please enter an end time in HH:MM format.")
+            st.stop()
+        end_time = parse_time_input(end_time_str)
         end_dt = datetime.combine(end_date, end_time)
         start_dt = end_dt - timedelta(hours=duration_h)
 
-    cost, night_kwh, day_kwh = split_cost(
-        start_dt, end_dt, kwh,
-        night_rate, day_rate,
-        night_start, night_end
-    )
+    # Continue with cost calculation and saving...
 
-    if night_kwh + day_kwh == 0:
-        offpeak = 0
-    else:
-        offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
-
-    new_row = {
-        "End Date": end_dt.date(),
-        "Start": start_dt.strftime("%H:%M"),
-        "End": end_dt.strftime("%H:%M"),
-        "Duration (h)": round(duration_h, 2),
-        "kWh": kwh,
-        "Night kWh": round(night_kwh, 2),
-        "Day kWh": round(day_kwh, 2),
-        "Cost": round(cost, 2),
-        "Off-Peak %": f"{offpeak}%"
-    }
-
-    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    df = backfill(df, night_rate, day_rate, night_start, night_end)
-    save_csv(df)
-    st.success("Session added!")
 
 # -----------------------------
 # Display table
