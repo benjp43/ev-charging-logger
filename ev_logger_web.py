@@ -151,22 +151,11 @@ public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85
 st.sidebar.write("---")
 
 # -----------------------------
-# CSV upload
+# Load or create CSV
 # -----------------------------
-st.header("Upload Charging History CSV")
-
-uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-
-if uploaded_file:
-    df = pd.read_csv(uploaded_file, encoding="utf-8-sig")
-    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce").dt.date
-    df = backfill(df, night_rate, day_rate, night_start, night_end)
-    save_csv(df)
-    st.success("CSV uploaded, recalculated, and saved!")
-else:
-    df = load_csv()
-    df = backfill(df, night_rate, day_rate, night_start, night_end)
-    save_csv(df)
+df = load_csv()
+df = backfill(df, night_rate, day_rate, night_start, night_end)
+save_csv(df)
 
 # -----------------------------
 # Bulk Upload Sessions
@@ -178,9 +167,11 @@ bulk_file = st.file_uploader("Upload bulk CSV", type=["csv"], key="bulk")
 if bulk_file:
     bulk_df = pd.read_csv(bulk_file, encoding="utf-8-sig")
     bulk_df["End Date"] = pd.to_datetime(bulk_df["End Date"], dayfirst=True, errors="coerce").dt.date
+
     df = pd.concat([df, bulk_df], ignore_index=True)
     df = backfill(df, night_rate, day_rate, night_start, night_end)
     save_csv(df)
+
     st.success("Bulk data uploaded, merged, recalculated, and saved!")
 
 # -----------------------------
