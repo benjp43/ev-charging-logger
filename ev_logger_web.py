@@ -25,6 +25,46 @@ def check_password():
 
 check_password()
 
+# -----------------------------
+# CSV upload
+# -----------------------------
+
+st.header("Upload Charging History CSV")
+
+uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+
+if uploaded_file:
+    df = pd.read_csv(uploaded_file, encoding="utf-8-sig")
+
+    # Convert End Date to date object
+    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce").dt.date
+
+    # Save uploaded file into app storage
+    save_csv(df)
+
+    st.success("CSV uploaded and loaded successfully!")
+else:
+    df = load_csv()
+
+st.header("Bulk Upload Sessions")
+
+bulk_file = st.file_uploader("Upload bulk CSV", type=["csv"], key="bulk")
+
+if bulk_file:
+    bulk_df = pd.read_csv(bulk_file, encoding="utf-8-sig")
+
+    # Convert End Date
+    bulk_df["End Date"] = pd.to_datetime(bulk_df["End Date"], dayfirst=True, errors="coerce").dt.date
+
+    # Append to main df
+    df = pd.concat([df, bulk_df], ignore_index=True)
+
+    # Recalculate everything
+    df = backfill(df, night_rate, day_rate, night_start, night_end)
+
+    save_csv(df)
+
+    st.success("Bulk data uploaded and merged!")
 
 LOG_FILE = "ev_charging_log.csv"
 
@@ -168,6 +208,36 @@ st.sidebar.write("---")
 df = load_csv()
 df = backfill(df, night_rate, day_rate, night_start, night_end)
 save_csv(df)
+
+# -----------------------------
+# Reset / Start Fresh
+# -----------------------------
+st.header("Reset Data")
+
+if st.button("Start Fresh / Clear All Data"):
+    st.warning("This will delete ALL charging data. This cannot be undone.")
+
+    # Offer download before deleting
+    if len(df) > 0:
+        csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            label="Download current CSV before deleting",
+            data=csv_bytes,
+            file_name="charging_history_backup.csv",
+            mime="text/csv"
+        )
+
+    if st.button("Confirm Delete"):
+        # Overwrite CSV with empty template
+        empty_df = pd.DataFrame(columns=[
+            "End Date","Start","End","Duration (h)","kWh",
+            "Night kWh","Day kWh","Cost","Off-Peak %"
+        ])
+        save_csv(empty_df)
+
+        st.success("All data cleared. App reset.")
+        st.experimental_rerun()
+
 
 # -----------------------------
 # Add Charging Session
