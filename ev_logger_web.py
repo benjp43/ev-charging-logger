@@ -28,20 +28,7 @@ def check_password():
 check_password()
 
 # -----------------------------
-# Sidebar settings (MUST come before upload/backfill)
-# -----------------------------
-st.sidebar.header("Settings")
-
-night_rate = st.sidebar.number_input("Night rate (£/kWh)", value=0.1497)
-day_rate = st.sidebar.number_input("Day rate (£/kWh)", value=0.3371)
-night_start = time_to_minutes(st.sidebar.text_input("Night start (HH:MM)", "00:30"))
-night_end = time_to_minutes(st.sidebar.text_input("Night end (HH:MM)", "07:30"))
-
-public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85)
-st.sidebar.write("---")
-
-# -----------------------------
-# Helpers
+# Helpers (MUST come before sidebar)
 # -----------------------------
 def time_to_minutes(t):
     h, m = map(int, t.split(":"))
@@ -91,9 +78,6 @@ def split_cost(start_dt, end_dt, kwh, night_rate, day_rate, night_start, night_e
 
     return cost, night_kwh, day_kwh
 
-# -----------------------------
-# Load CSV
-# -----------------------------
 def load_csv():
     if not os.path.exists(LOG_FILE):
         return pd.DataFrame(columns=[
@@ -105,13 +89,23 @@ def load_csv():
     df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce").dt.date
     return df
 
-# -----------------------------
-# Save CSV
-# -----------------------------
 def save_csv(df):
     df_to_save = df.copy()
     df_to_save["End Date"] = df_to_save["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
     df_to_save.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
+
+# -----------------------------
+# Sidebar settings (NOW safe)
+# -----------------------------
+st.sidebar.header("Settings")
+
+night_rate = st.sidebar.number_input("Night rate (£/kWh)", value=0.1497)
+day_rate = st.sidebar.number_input("Day rate (£/kWh)", value=0.3371)
+night_start = time_to_minutes(st.sidebar.text_input("Night start (HH:MM)", "00:30"))
+night_end = time_to_minutes(st.sidebar.text_input("Night end (HH:MM)", "07:30"))
+
+public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85)
+st.sidebar.write("---")
 
 # -----------------------------
 # CSV upload
