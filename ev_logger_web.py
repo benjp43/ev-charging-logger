@@ -148,7 +148,72 @@ night_start = time_to_minutes(st.sidebar.text_input("Night start (HH:MM)", "00:3
 night_end = time_to_minutes(st.sidebar.text_input("Night end (HH:MM)", "07:30"))
 
 public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85)
+
 st.sidebar.write("---")
+
+# -----------------------------
+# Bulk Upload Sessions (now in sidebar)
+# -----------------------------
+st.sidebar.subheader("Bulk Upload Sessions")
+
+bulk_file = st.sidebar.file_uploader("Upload bulk CSV", type=["csv"], key="bulk")
+
+if bulk_file:
+    bulk_df = pd.read_csv(bulk_file, encoding="utf-8-sig")
+    bulk_df["End Date"] = pd.to_datetime(bulk_df["End Date"], dayfirst=True, errors="coerce").dt.date
+
+    df = pd.concat([df, bulk_df], ignore_index=True)
+    df = backfill(df, night_rate, day_rate, night_start, night_end)
+    save_csv(df)
+
+    st.sidebar.success("Bulk data uploaded and merged!")
+
+st.sidebar.write("---")
+
+# -----------------------------
+# Download CSV (now in sidebar)
+# -----------------------------
+st.sidebar.subheader("Download CSV")
+
+csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
+
+st.sidebar.download_button(
+    label="Download current CSV",
+    data=csv_bytes,
+    file_name="charging_history.csv",
+    mime="text/csv",
+    key="sidebar_download"
+)
+
+st.sidebar.write("---")
+
+# -----------------------------
+# Reset Data (now in sidebar)
+# -----------------------------
+st.sidebar.subheader("Reset Data")
+
+if st.sidebar.button("Start Fresh / Clear All Data"):
+    st.sidebar.warning("This will delete ALL charging data.")
+
+    # Offer backup download
+    if len(df) > 0:
+        st.sidebar.download_button(
+            label="Download backup before deleting",
+            data=csv_bytes,
+            file_name="charging_history_backup.csv",
+            mime="text/csv",
+            key="sidebar_backup"
+        )
+
+    if st.sidebar.button("Confirm Delete"):
+        empty_df = pd.DataFrame(columns=[
+            "End Date","Start","End","Duration (h)","kWh",
+            "Night kWh","Day kWh","Cost","Off-Peak %"
+        ])
+        save_csv(empty_df)
+        st.sidebar.success("All data cleared.")
+        st.experimental_rerun()
+
 
 # -----------------------------
 # Load or create CSV
