@@ -28,6 +28,19 @@ def check_password():
 check_password()
 
 # -----------------------------
+# Sidebar settings (MUST come before upload/backfill)
+# -----------------------------
+st.sidebar.header("Settings")
+
+night_rate = st.sidebar.number_input("Night rate (£/kWh)", value=0.1497)
+day_rate = st.sidebar.number_input("Day rate (£/kWh)", value=0.3371)
+night_start = time_to_minutes(st.sidebar.text_input("Night start (HH:MM)", "00:30"))
+night_end = time_to_minutes(st.sidebar.text_input("Night end (HH:MM)", "07:30"))
+
+public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85)
+st.sidebar.write("---")
+
+# -----------------------------
 # Helpers
 # -----------------------------
 def time_to_minutes(t):
@@ -99,19 +112,6 @@ def save_csv(df):
     df_to_save = df.copy()
     df_to_save["End Date"] = df_to_save["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
     df_to_save.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
-
-# -----------------------------
-# Sidebar settings (needed before backfill)
-# -----------------------------
-st.sidebar.header("Settings")
-
-night_rate = st.sidebar.number_input("Night rate (£/kWh)", value=0.1497)
-day_rate = st.sidebar.number_input("Day rate (£/kWh)", value=0.3371)
-night_start = time_to_minutes(st.sidebar.text_input("Night start (HH:MM)", "00:30"))
-night_end = time_to_minutes(st.sidebar.text_input("Night end (HH:MM)", "07:30"))
-
-public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85)
-st.sidebar.write("---")
 
 # -----------------------------
 # CSV upload
