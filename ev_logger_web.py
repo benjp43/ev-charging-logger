@@ -28,6 +28,11 @@ def check_password():
 check_password()
 
 # -----------------------------
+# Title at top
+# -----------------------------
+st.title("⚡ Ben's EV Charging Logger 🚙")
+
+# -----------------------------
 # Helpers
 # -----------------------------
 def time_to_minutes(t):
@@ -138,7 +143,12 @@ def backfill(df, night_rate, day_rate, night_start, night_end):
     return df
 
 # -----------------------------
-# Sidebar settings
+# Load CSV initially
+# -----------------------------
+df = load_csv()
+
+# -----------------------------
+# Sidebar settings + controls
 # -----------------------------
 st.sidebar.header("Settings")
 
@@ -152,7 +162,7 @@ public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85
 st.sidebar.write("---")
 
 # -----------------------------
-# Bulk Upload Sessions (now in sidebar)
+# Bulk Upload Sessions
 # -----------------------------
 st.sidebar.subheader("Bulk Upload Sessions")
 
@@ -171,7 +181,7 @@ if bulk_file:
 st.sidebar.write("---")
 
 # -----------------------------
-# Download CSV (now in sidebar)
+# Download CSV
 # -----------------------------
 st.sidebar.subheader("Download CSV")
 
@@ -188,14 +198,13 @@ st.sidebar.download_button(
 st.sidebar.write("---")
 
 # -----------------------------
-# Reset Data (now in sidebar)
+# Reset Data
 # -----------------------------
 st.sidebar.subheader("Reset Data")
 
 if st.sidebar.button("Start Fresh / Clear All Data"):
     st.sidebar.warning("This will delete ALL charging data.")
 
-    # Offer backup download
     if len(df) > 0:
         st.sidebar.download_button(
             label="Download backup before deleting",
@@ -214,62 +223,11 @@ if st.sidebar.button("Start Fresh / Clear All Data"):
         st.sidebar.success("All data cleared.")
         st.experimental_rerun()
 
-
 # -----------------------------
-# Load or create CSV
+# Recalculate after settings changes
 # -----------------------------
-df = load_csv()
 df = backfill(df, night_rate, day_rate, night_start, night_end)
 save_csv(df)
-
-# -----------------------------
-# Bulk Upload Sessions
-# -----------------------------
-st.header("Bulk Upload Sessions")
-
-bulk_file = st.file_uploader("Upload bulk CSV", type=["csv"], key="bulk")
-
-if bulk_file:
-    bulk_df = pd.read_csv(bulk_file, encoding="utf-8-sig")
-    bulk_df["End Date"] = pd.to_datetime(bulk_df["End Date"], dayfirst=True, errors="coerce").dt.date
-
-    df = pd.concat([df, bulk_df], ignore_index=True)
-    df = backfill(df, night_rate, day_rate, night_start, night_end)
-    save_csv(df)
-
-    st.success("Bulk data uploaded, merged, recalculated, and saved!")
-
-# -----------------------------
-# Reset / Start Fresh
-# -----------------------------
-st.header("Reset Data")
-
-if st.button("Start Fresh / Clear All Data"):
-    st.warning("This will delete ALL charging data. This cannot be undone.")
-
-    if len(df) > 0:
-        csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            label="Download current CSV before deleting",
-            data=csv_bytes,
-            file_name="charging_history_backup.csv",
-            mime="text/csv",
-            key="backup_download"
-        )
-
-    if st.button("Confirm Delete"):
-        empty_df = pd.DataFrame(columns=[
-            "End Date","Start","End","Duration (h)","kWh",
-            "Night kWh","Day kWh","Cost","Off-Peak %"
-        ])
-        save_csv(empty_df)
-        st.success("All data cleared. App reset.")
-        st.experimental_rerun()
-
-# -----------------------------
-# Main UI
-# -----------------------------
-st.title("⚡ Ben's EV Charging Logger")
 
 # -----------------------------
 # Add Charging Session
@@ -383,29 +341,6 @@ difference = public_cost - total_cost
 
 st.write(f"At £{public_rate:.2f}/kWh, public charging would cost **£{public_cost:.2f}**")
 st.write(f"Difference vs home: **£{difference:.2f}**")
-
-# -----------------------------
-# Download CSV
-# -----------------------------
-st.subheader("Download CSV")
-
-if len(df) > 0:
-    start_date_str = df["End Date"].iloc[0].strftime("%d.%m.%Y")
-    end_date_str = df["End Date"].iloc[-1].strftime("%d.%m.%Y")
-    total_kwh = df["kWh"].sum()
-
-    filename = f"Charging history {start_date_str} to {end_date_str} {total_kwh:.2f}kWh.csv"
-
-    csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
-
-    st.download_button(
-        label="Download charging history CSV",
-        data=csv_bytes,
-        file_name=filename,
-        mime="text/csv"
-    )
-else:
-    st.info("No data available to download.")
 
 # -----------------------------
 # Custom date range summary
