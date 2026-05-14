@@ -28,7 +28,7 @@ def check_password():
 check_password()
 
 # -----------------------------
-# Helpers (MUST come before sidebar)
+# Helpers
 # -----------------------------
 def time_to_minutes(t):
     h, m = map(int, t.split(":"))
@@ -94,8 +94,51 @@ def save_csv(df):
     df_to_save["End Date"] = df_to_save["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
     df_to_save.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
 
+def backfill(df, night_rate, day_rate, night_start, night_end):
+    import numpy as np
+
+    if "Night kWh" not in df.columns:
+        df["Night kWh"] = np.nan
+    if "Day kWh" not in df.columns:
+        df["Day kWh"] = np.nan
+    if "Cost" not in df.columns:
+        df["Cost"] = np.nan
+    if "Off-Peak %" not in df.columns:
+        df["Off-Peak %"] = pd.Series([None] * len(df), dtype="object")
+
+    for i, row in df.iterrows():
+        end_date = row["End Date"]
+        if pd.isna(end_date):
+            continue
+
+        end_time = datetime.strptime(row["End"], "%H:%M").time()
+        end_dt = datetime.combine(end_date, end_time)
+
+        duration_h = float(row["Duration (h)"])
+        start_dt = end_dt - timedelta(hours=duration_h)
+
+        kwh = float(row["kWh"])
+
+        cost, night_kwh, day_kwh = split_cost(
+            start_dt, end_dt, kwh,
+            night_rate, day_rate,
+            night_start, night_end
+        )
+
+        if night_kwh + day_kwh == 0:
+            offpeak = 0
+        else:
+            offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
+
+        df.at[i, "Night kWh"] = round(night_kwh, 2)
+        df.at[i, "Day kWh"] = round(day_kwh, 2)
+        df.at[i, "Cost"] = round(cost, 2)
+        df.at[i, "Off-Peak %"] = f"{offpeak}%"
+
+    return df
+
 # -----------------------------
-# Sidebar settings (NOW safe)
+# Sidebar settings
 # -----------------------------
 st.sidebar.header("Settings")
 
@@ -117,10 +160,13 @@ uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 if uploaded_file:
     df = pd.read_csv(uploaded_file, encoding="utf-8-sig")
     df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce").dt.date
+    df = backfill(df, night_rate, day_rate, night_start, night_end)
     save_csv(df)
-    st.success("CSV uploaded and loaded successfully!")
+    st.success("CSV uploaded, recalculated, and saved!")
 else:
     df = load_csv()
+    df = backfill(df, night_rate, day_rate, night_start, night_end)
+    save_csv(df)
 
 # -----------------------------
 # Bulk Upload Sessions
@@ -135,72 +181,7 @@ if bulk_file:
     df = pd.concat([df, bulk_df], ignore_index=True)
     df = backfill(df, night_rate, day_rate, night_start, night_end)
     save_csv(df)
-    st.success("Bulk data uploaded and merged!")
-
-# -----------------------------
-# Backfill missing columns
-# -----------------------------
-def backfill(df, night_rate, day_rate, night_start, night_end):
-
-    import numpy as np
-
-    if "Night kWh" not in df.columns:
-        df["Night kWh"] = np.nan
-    if "Day kWh" not in df.columns:
-        df["Day kWh"] = np.nan
-    if "Cost" not in df.columns:
-        df["Cost"] = np.nan
-    if "Off-Peak %" not in df.columns:
-        df["Off-Peak %"] = pd.Series([None] * len(df), dtype="object")
-
-    for i, row in df.iterrows():
-
-        end_date = row["End Date"]
-        end_time = datetime.strptime(row["End"], "%H:%M").time()
-        end_dt = datetime.combine(end_date, end_time)
-
-        duration_h = float(row["Duration (h)"])
-        start_dt = end_dt - timedelta(hours=duration_h)
-
-        kwh = float(row["kWh"])
-
-        cost, night_kwh, day_kwh = split_cost(
-            start_dt, end_dt, kwh,
-            night_rate, day_rate,
-            night_start, night_end
-        )
-
-        offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
-
-        df.at[i, "Night kWh"] = round(night_kwh, 2)
-        df.at[i, "Day kWh"] = round(day_kwh, 2)
-        df.at[i, "Cost"] = round(cost, 2)
-        df.at[i, "Off-Peak %"] = f"{offpeak}%"
-
-    return df
-
-# -----------------------------
-# Streamlit UI
-# -----------------------------
-st.title("⚡ Ben's EV Charging Logger")
-
-st.sidebar.header("Settings")
-
-night_rate = st.sidebar.number_input("Night rate (£/kWh)", value=0.1497)
-day_rate = st.sidebar.number_input("Day rate (£/kWh)", value=0.3371)
-night_start = time_to_minutes(st.sidebar.text_input("Night start (HH:MM)", "00:30"))
-night_end = time_to_minutes(st.sidebar.text_input("Night end (HH:MM)", "07:30"))
-
-public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85)
-
-st.sidebar.write("---")
-
-# -----------------------------
-# Load and backfill CSV
-# -----------------------------
-df = load_csv()
-df = backfill(df, night_rate, day_rate, night_start, night_end)
-save_csv(df)
+    st.success("Bulk data uploaded, merged, recalculated, and saved!")
 
 # -----------------------------
 # Reset / Start Fresh
@@ -210,27 +191,29 @@ st.header("Reset Data")
 if st.button("Start Fresh / Clear All Data"):
     st.warning("This will delete ALL charging data. This cannot be undone.")
 
-    # Offer download before deleting
     if len(df) > 0:
         csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
         st.download_button(
             label="Download current CSV before deleting",
             data=csv_bytes,
             file_name="charging_history_backup.csv",
-            mime="text/csv"
+            mime="text/csv",
+            key="backup_download"
         )
 
     if st.button("Confirm Delete"):
-        # Overwrite CSV with empty template
         empty_df = pd.DataFrame(columns=[
             "End Date","Start","End","Duration (h)","kWh",
             "Night kWh","Day kWh","Cost","Off-Peak %"
         ])
         save_csv(empty_df)
-
         st.success("All data cleared. App reset.")
         st.experimental_rerun()
 
+# -----------------------------
+# Main UI
+# -----------------------------
+st.title("⚡ Ben's EV Charging Logger")
 
 # -----------------------------
 # Add Charging Session
@@ -282,7 +265,10 @@ if st.button("Add session"):
         night_start, night_end
     )
 
-    offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
+    if night_kwh + day_kwh == 0:
+        offpeak = 0
+    else:
+        offpeak = int((night_kwh / (night_kwh + day_kwh)) * 100)
 
     new_row = {
         "End Date": end_dt.date(),
@@ -297,6 +283,7 @@ if st.button("Add session"):
     }
 
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    df = backfill(df, night_rate, day_rate, night_start, night_end)
     save_csv(df)
     st.success("Session added!")
 
@@ -308,7 +295,9 @@ st.subheader("Charging History")
 df = df.sort_values("End Date").reset_index(drop=True)
 
 df_display = df.copy()
-df_display["End Date"] = df_display["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
+df_display["End Date"] = df_display["End Date"].apply(
+    lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else ""
+)
 st.dataframe(df_display, use_container_width=True)
 
 # -----------------------------
@@ -319,6 +308,8 @@ num_sessions = len(df)
 if num_sessions > 0:
     first_date = df["End Date"].iloc[0]
     last_date = df["End Date"].iloc[-1]
+else:
+    first_date = last_date = None
 
 total_cost = df["Cost"].sum()
 total_kwh = df["kWh"].sum()
@@ -328,7 +319,6 @@ if num_sessions > 0:
         f"Total home charging cost with {num_sessions} sessions "
         f"between {first_date.strftime('%d/%m/%Y')} and {last_date.strftime('%d/%m/%Y')}: £{total_cost:.2f}"
     )
-
 else:
     st.subheader("No charging sessions recorded yet.")
 
@@ -344,11 +334,11 @@ st.write(f"Difference vs home: **£{difference:.2f}**")
 st.subheader("Download CSV")
 
 if len(df) > 0:
-    start_date = df["End Date"].iloc[0].strftime("%d.%m.%Y")
-    end_date = df["End Date"].iloc[-1].strftime("%d.%m.%Y")
+    start_date_str = df["End Date"].iloc[0].strftime("%d.%m.%Y")
+    end_date_str = df["End Date"].iloc[-1].strftime("%d.%m.%Y")
     total_kwh = df["kWh"].sum()
 
-    filename = f"Charging history {start_date} to {end_date} {total_kwh:.2f}kWh.csv"
+    filename = f"Charging history {start_date_str} to {end_date_str} {total_kwh:.2f}kWh.csv"
 
     csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
 
@@ -377,11 +367,17 @@ mask = (df["End Date"] >= start_filter) & (df["End Date"] <= end_filter)
 filtered_df = df[mask].copy()
 
 st.subheader("Filtered Sessions")
+
 filtered_display = filtered_df.copy()
-filtered_display["End Date"] = filtered_display["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
+filtered_display["End Date"] = filtered_display["End Date"].apply(
+    lambda d: d.strftime("%d/%m/%Y") if pd.notna(d) else ""
+)
 st.dataframe(filtered_display, use_container_width=True)
 
-total_cost = filtered_df["Cost"].sum()
+total_cost_range = filtered_df["Cost"].sum()
 
 st.subheader("Summary")
-st.write(f"**Total cost from {start_filter.strftime('%d/%m/%Y')} to {end_filter.strftime('%d/%m/%Y')}: £{total_cost:.2f}**")
+st.write(
+    f"**Total cost from {start_filter.strftime('%d/%m/%Y')} "
+    f"to {end_filter.strftime('%d/%m/%Y')}: £{total_cost_range:.2f}**"
+)
