@@ -4,6 +4,8 @@ import csv
 import os
 from datetime import datetime, timedelta
 
+LOG_FILE = "ev_charging_log.csv"
+
 # -----------------------------
 # Password protection
 # -----------------------------
@@ -24,49 +26,6 @@ def check_password():
         st.stop()
 
 check_password()
-
-# -----------------------------
-# CSV upload
-# -----------------------------
-
-st.header("Upload Charging History CSV")
-
-uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-
-if uploaded_file:
-    df = pd.read_csv(uploaded_file, encoding="utf-8-sig")
-
-    # Convert End Date to date object
-    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce").dt.date
-
-    # Save uploaded file into app storage
-    save_csv(df)
-
-    st.success("CSV uploaded and loaded successfully!")
-else:
-    df = load_csv()
-
-st.header("Bulk Upload Sessions")
-
-bulk_file = st.file_uploader("Upload bulk CSV", type=["csv"], key="bulk")
-
-if bulk_file:
-    bulk_df = pd.read_csv(bulk_file, encoding="utf-8-sig")
-
-    # Convert End Date
-    bulk_df["End Date"] = pd.to_datetime(bulk_df["End Date"], dayfirst=True, errors="coerce").dt.date
-
-    # Append to main df
-    df = pd.concat([df, bulk_df], ignore_index=True)
-
-    # Recalculate everything
-    df = backfill(df, night_rate, day_rate, night_start, night_end)
-
-    save_csv(df)
-
-    st.success("Bulk data uploaded and merged!")
-
-LOG_FILE = "ev_charging_log.csv"
 
 # -----------------------------
 # Helpers
@@ -130,10 +89,7 @@ def load_csv():
         ])
 
     df = pd.read_csv(LOG_FILE, encoding="utf-8-sig")
-
-    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce")
-    df["End Date"] = df["End Date"].dt.date
-
+    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce").dt.date
     return df
 
 # -----------------------------
@@ -143,6 +99,49 @@ def save_csv(df):
     df_to_save = df.copy()
     df_to_save["End Date"] = df_to_save["End Date"].apply(lambda d: d.strftime("%d/%m/%Y"))
     df_to_save.to_csv(LOG_FILE, index=False, encoding="utf-8-sig")
+
+# -----------------------------
+# Sidebar settings (needed before backfill)
+# -----------------------------
+st.sidebar.header("Settings")
+
+night_rate = st.sidebar.number_input("Night rate (£/kWh)", value=0.1497)
+day_rate = st.sidebar.number_input("Day rate (£/kWh)", value=0.3371)
+night_start = time_to_minutes(st.sidebar.text_input("Night start (HH:MM)", "00:30"))
+night_end = time_to_minutes(st.sidebar.text_input("Night end (HH:MM)", "07:30"))
+
+public_rate = st.sidebar.number_input("Public charger rate (£/kWh)", value=0.85)
+st.sidebar.write("---")
+
+# -----------------------------
+# CSV upload
+# -----------------------------
+st.header("Upload Charging History CSV")
+
+uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+
+if uploaded_file:
+    df = pd.read_csv(uploaded_file, encoding="utf-8-sig")
+    df["End Date"] = pd.to_datetime(df["End Date"], dayfirst=True, errors="coerce").dt.date
+    save_csv(df)
+    st.success("CSV uploaded and loaded successfully!")
+else:
+    df = load_csv()
+
+# -----------------------------
+# Bulk Upload Sessions
+# -----------------------------
+st.header("Bulk Upload Sessions")
+
+bulk_file = st.file_uploader("Upload bulk CSV", type=["csv"], key="bulk")
+
+if bulk_file:
+    bulk_df = pd.read_csv(bulk_file, encoding="utf-8-sig")
+    bulk_df["End Date"] = pd.to_datetime(bulk_df["End Date"], dayfirst=True, errors="coerce").dt.date
+    df = pd.concat([df, bulk_df], ignore_index=True)
+    df = backfill(df, night_rate, day_rate, night_start, night_end)
+    save_csv(df)
+    st.success("Bulk data uploaded and merged!")
 
 # -----------------------------
 # Backfill missing columns
