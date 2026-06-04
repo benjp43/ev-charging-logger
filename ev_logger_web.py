@@ -24,12 +24,13 @@ mode = st.radio(
 col1, col2 = st.columns(2)
 with col1:
     kwh = st.number_input("Energy used (kWh)", min_value=0.0, step=0.1)
-with col2:
-    duration_hours = st.number_input(
-        "Duration (hours, decimal)", min_value=0.0, step=0.25
-    )
 
-st.caption("Example: 21 hours 56 minutes ≈ 21.93 hours")
+with col2:
+    duration_input = st.time_input("Duration (HH:MM)", value=time(1, 0))
+
+# Convert HH:MM → decimal hours
+duration_hours = duration_input.hour + duration_input.minute / 60
+
 
 col3, col4 = st.columns(2)
 if mode == "Start + Duration":
@@ -46,6 +47,7 @@ else:
         end_time = st.time_input("End time", value=time(7, 30))
     start_date = None
     start_time = None
+
 
 st.subheader("Tariff settings")
 
@@ -179,7 +181,7 @@ if st.button("Calculate"):
                 with col_a:
                     st.markdown(f"**Start:** {start_dt.strftime('%Y-%m-%d %H:%M')}")
                     st.markdown(f"**End:** {end_dt.strftime('%Y-%m-%d %H:%M')}")
-                    st.markdown(f"**Duration:** {duration_hours:.2f} hours")
+                    st.markdown(f"**Duration:** {duration_input.strftime('%H:%M')}")
                     st.markdown(f"**Total kWh:** {kwh:.2f}")
                 with col_b:
                     st.markdown(f"**Night kWh:** {night_kwh:.2f}")
