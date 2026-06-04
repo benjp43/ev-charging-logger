@@ -26,11 +26,15 @@ with col1:
     kwh = st.number_input("Energy used (kWh)", min_value=0.0, step=0.1)
 
 with col2:
-    duration_input = st.time_input("Duration (HH:MM)", value=time(1, 0))
+    duration_str = st.text_input("Duration (HH:MM)", value="01:00")
 
-# Convert HH:MM → decimal hours
-duration_hours = duration_input.hour + duration_input.minute / 60
-
+# Parse HH:MM → decimal hours
+try:
+    h, m = duration_str.split(":")
+    duration_hours = int(h) + int(m) / 60
+except:
+    duration_hours = 0
+    st.error("Enter duration as HH:MM, e.g. 12:52")
 
 col3, col4 = st.columns(2)
 if mode == "Start + Duration":
@@ -47,7 +51,6 @@ else:
         end_time = st.time_input("End time", value=time(7, 30))
     start_date = None
     start_time = None
-
 
 st.subheader("Tariff settings")
 
@@ -85,10 +88,6 @@ def compute_start_end(mode, start_date, start_time, end_date, end_time, duration
 
 
 def split_session_by_day(start_dt, end_dt, night_start_time, night_end_time):
-    """
-    Split a charging session into daily segments and compute
-    night/day minutes for each day.
-    """
     results = []
     total_night_minutes = 0.0
     total_day_minutes = 0.0
@@ -96,27 +95,23 @@ def split_session_by_day(start_dt, end_dt, night_start_time, night_end_time):
     current = start_dt
 
     while current < end_dt:
-        # End of this day (midnight of next day)
         day_end = datetime.combine(current.date() + timedelta(days=1), time(0, 0))
         seg_end = min(end_dt, day_end)
 
         seg_start = current
         seg_minutes = (seg_end - seg_start).total_seconds() / 60.0
 
-        # Night window for this day
         night_start_dt = datetime.combine(seg_start.date(), night_start_time)
         night_end_dt = datetime.combine(seg_start.date(), night_end_time)
         if night_end_dt <= night_start_dt:
             night_end_dt += timedelta(days=1)
 
-        # Overlap between [seg_start, seg_end] and [night_start_dt, night_end_dt]
         overlap_start = max(seg_start, night_start_dt)
         overlap_end = min(seg_end, night_end_dt)
         night_minutes = max(
             0.0, (overlap_end - overlap_start).total_seconds() / 60.0
         )
 
-        # Clamp for safety
         night_minutes = max(0.0, min(night_minutes, seg_minutes))
         day_minutes = seg_minutes - night_minutes
 
@@ -181,7 +176,7 @@ if st.button("Calculate"):
                 with col_a:
                     st.markdown(f"**Start:** {start_dt.strftime('%Y-%m-%d %H:%M')}")
                     st.markdown(f"**End:** {end_dt.strftime('%Y-%m-%d %H:%M')}")
-                    st.markdown(f"**Duration:** {duration_input.strftime('%H:%M')}")
+                    st.markdown(f"**Duration:** {duration_str}")
                     st.markdown(f"**Total kWh:** {kwh:.2f}")
                 with col_b:
                     st.markdown(f"**Night kWh:** {night_kwh:.2f}")
