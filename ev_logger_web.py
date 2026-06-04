@@ -28,37 +28,69 @@ with col1:
 with col2:
     duration_str = st.text_input("Duration (HH:MM)", value="01:00")
 
-# Parse HH:MM → decimal hours
+# Parse duration HH:MM → decimal hours
 try:
-    h, m = duration_str.split(":")
-    duration_hours = int(h) + int(m) / 60
+    dh, dm = duration_str.split(":")
+    duration_hours = int(dh) + int(dm) / 60
 except:
     duration_hours = 0
     st.error("Enter duration as HH:MM, e.g. 12:52")
 
 col3, col4 = st.columns(2)
+
 if mode == "Start + Duration":
     with col3:
         start_date = st.date_input("Start date", value=date.today())
     with col4:
-        start_time = st.time_input("Start time", value=time(13, 30))
+        start_time_str = st.text_input("Start time (HH:MM)", value="13:30")
+
+    # Parse start time
+    try:
+        sh, sm = start_time_str.split(":")
+        start_time = time(int(sh), int(sm))
+    except:
+        start_time = None
+        st.error("Enter start time as HH:MM")
+
     end_date = None
     end_time = None
+
 else:
     with col3:
         end_date = st.date_input("End date", value=date.today())
     with col4:
-        end_time = st.time_input("End time", value=time(7, 30))
+        end_time_str = st.text_input("End time (HH:MM)", value="07:30")
+
+    # Parse end time
+    try:
+        eh, em = end_time_str.split(":")
+        end_time = time(int(eh), int(em))
+    except:
+        end_time = None
+        st.error("Enter end time as HH:MM")
+
     start_date = None
     start_time = None
+
 
 st.subheader("Tariff settings")
 
 col5, col6 = st.columns(2)
 with col5:
-    night_start_time = st.time_input("Night rate starts at", value=time(0, 30))
+    night_start_str = st.text_input("Night rate starts at (HH:MM)", value="00:30")
 with col6:
-    night_end_time = st.time_input("Night rate ends at", value=time(7, 30))
+    night_end_str = st.text_input("Night rate ends at (HH:MM)", value="07:30")
+
+# Parse night window
+try:
+    nsh, nsm = night_start_str.split(":")
+    night_start_time = time(int(nsh), int(nsm))
+    neh, nem = night_end_str.split(":")
+    night_end_time = time(int(neh), int(nem))
+except:
+    night_start_time = time(0, 30)
+    night_end_time = time(7, 30)
+    st.error("Enter night window times as HH:MM")
 
 col7, col8 = st.columns(2)
 with col7:
@@ -78,9 +110,13 @@ def compute_start_end(mode, start_date, start_time, end_date, end_time, duration
     duration = timedelta(hours=duration_hours)
 
     if mode == "Start + Duration":
+        if start_time is None:
+            return None, None
         start_dt = datetime.combine(start_date, start_time)
         end_dt = start_dt + duration
     else:
+        if end_time is None:
+            return None, None
         end_dt = datetime.combine(end_date, end_time)
         start_dt = end_dt - duration
 
